@@ -1,0 +1,13 @@
+{
+  "_note": "A writer baseline. Copy this file, then fill it from text you really send: the length caps from your own messages per channel, and avoid_phrases from phrases a model adds that you never write. Keys you leave out keep the built-in defaults. Length is in words (whitespace-separated), 'lines' counts non-empty lines.",
+  "channels": {
+    "chat":     {"cap": 60,  "hard": 100},
+    "speech":   {"cap": 55,  "hard": 80},
+    "email":    {"cap": 150, "hard": 220},
+    "linkedin": {"cap": 80,  "hard": 120},
+    "letter":   {"min": 250, "cap": 350, "hard": 420},
+    "listing":  {"lines": 10}
+  },
+  "avoid_phrases": ["let me know", "i hope this helps", "circle back"],
+  "short_sentence_words": 5
+}

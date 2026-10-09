@@ -1,0 +1,5 @@
+- id: ai-tell
+  name: AI tells in Korean and English text
+  entry: ai-tell
+  language: python
+  types: [markdown]

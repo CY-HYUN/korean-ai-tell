@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "korean-ai-tell"
+version = "0.1.0"
+description = "Flag AI tells in Korean (and English) text: rule id, severity, matched phrase and a fix hint."
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Changyong Hyun"}]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+ai-tell = "korean_ai_tell.cli:main"
+
+[tool.setuptools]
+packages = ["korean_ai_tell"]
