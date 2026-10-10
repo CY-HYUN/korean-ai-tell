@@ -1,5 +1,7 @@
 # korean-ai-tell
 
+![tests](https://github.com/CY-HYUN/korean-ai-tell/actions/workflows/tests.yml/badge.svg)
+
 A small Python library and CLI that flags "AI tells" in Korean text: the phrases that make a Korean reader think "GPT wrote this" within three seconds. An English rule set runs as a second mode.
 
 Each finding has a rule id, a severity (`BLOCK` or `WARN`), the matched phrase and a one-line fix hint. The CLI exits with code 1 when any finding is `BLOCK`, so it can sit in a pre-commit hook or a CI step. The repo also ships a Claude Code skill (`skill/no-ai-tell/`) with the full Korean pattern table, so an agent can diagnose and rewrite drafts, not only flag them.
