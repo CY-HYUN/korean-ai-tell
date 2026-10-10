@@ -1,6 +1,6 @@
 # korean-ai-tell
 
-![tests](https://github.com/CY-HYUN/korean-ai-tell/actions/workflows/tests.yml/badge.svg)
+![tests](https://github.com/CY-HYUN/korean-ai-tell/actions/workflows/tests.yml/badge.svg) [![PyPI](https://img.shields.io/pypi/v/korean-ai-tell)](https://pypi.org/project/korean-ai-tell/)
 
 A small Python library and CLI that flags "AI tells" in Korean text: the phrases that make a Korean reader think "GPT wrote this" within three seconds. An English rule set runs as a second mode.
 
@@ -13,7 +13,7 @@ No dependencies. Python 3.9+.
 ## Quickstart
 
 ```bash
-pip install .
+pip install korean-ai-tell   # or, from a clone: pip install .
 ai-tell examples/before.md
 ```
 
@@ -131,7 +131,7 @@ LLM으로 초안을 쓴 한국어 글에서 "AI 티"를 찾아 주는 작은 파
 걸린 곳마다 규칙 이름, 심각도(`BLOCK` 또는 `WARN`), 걸린 문구, 고치는 방법 한 줄을 보여 줍니다. `BLOCK`이 하나라도 있으면 종료 코드 1을 돌려주니 pre-commit 훅이나 CI에 그대로 넣을 수 있어요.
 
 ```bash
-pip install .
+pip install korean-ai-tell   # or, from a clone: pip install .
 ai-tell 초안.md
 ```
 
