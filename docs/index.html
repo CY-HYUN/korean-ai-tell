@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>korean-ai-tell demo</title>
+<meta name="description" content="Paste Korean (or English) text and see the phrases that make it read as LLM-written, highlighted in place, each with a fix hint.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f7f9; --surface: #ffffff; --sunken: #f9fafb; --fg: #111827; --muted: #5b6472; --faint: #8a93a1;
+    --line: #e5e7eb; --line-strong: #d1d5db;
+    --accent: #2f54eb; --accent-fg: #ffffff; --accent-soft: #eef2ff;
+    --good: #0f7a4d; --good-bg: #e8f6ef; --warn: #8a5300; --warn-bg: #fdf4e2; --bad: #b42318; --bad-bg: #fdeceb;
+    --neutral: #4b5563; --neutral-bg: #f1f2f4; --mark-block: #fecaca; --mark-warn: #fde68a; --mark-focus: #93c5fd;
+    --shadow: 0 1px 2px rgba(17, 24, 39, .04), 0 4px 16px rgba(17, 24, 39, .06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1015; --surface: #161922; --sunken: #12151c; --fg: #e8eaf0; --muted: #a0a7b4; --faint: #7a8291;
+      --line: #262a35; --line-strong: #343947;
+      --accent: #8aa4ff; --accent-fg: #0b1230; --accent-soft: #1b2340;
+      --good: #6ad3a2; --good-bg: #12291f; --warn: #f2c063; --warn-bg: #2f2410; --bad: #ff8d84; --bad-bg: #321715;
+      --neutral: #b4bac6; --neutral-bg: #20242e; --mark-block: #5a1f1c; --mark-warn: #5c4b0b; --mark-focus: #1e3a8a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1015; --surface: #161922; --sunken: #12151c; --fg: #e8eaf0; --muted: #a0a7b4; --faint: #7a8291;
+    --line: #262a35; --line-strong: #343947;
+    --accent: #8aa4ff; --accent-fg: #0b1230; --accent-soft: #1b2340;
+    --good: #6ad3a2; --good-bg: #12291f; --warn: #f2c063; --warn-bg: #2f2410; --bad: #ff8d84; --bad-bg: #321715;
+    --neutral: #b4bac6; --neutral-bg: #20242e; --mark-block: #5a1f1c; --mark-warn: #5c4b0b; --mark-focus: #1e3a8a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 15.5px/1.65 Inter, "Noto Sans KR", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; font-feature-settings: "cv11", "tnum"; -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent); text-underline-offset: 2px; }
+  .topbar { border-bottom: 1px solid var(--line); background: var(--surface); }
+  .topbar-in { max-width: 1180px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; }
+  .brand svg { color: var(--accent); }
+  .tools { display: flex; gap: 8px; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: var(--surface); color: var(--muted); padding: 6px 11px; font-size: .84rem; font-weight: 500; border-radius: 0; }
+  .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+  .topbar a.src { display: inline-flex; align-items: center; gap: 6px; font-size: .88rem; font-weight: 500; color: var(--fg);
+    text-decoration: none; border: 1px solid var(--line-strong); border-radius: 8px; padding: 6px 12px; }
+  .topbar a.src:hover { border-color: var(--accent); color: var(--accent); }
+  @media (max-width: 520px) { .topbar a.src span { display: none; } }
+  main { max-width: 1180px; margin: 0 auto; padding: 36px 16px 64px; }
+  header { max-width: 68ch; margin-bottom: 28px; }
+  h1 { font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.1rem); line-height: 1.25; margin: 0 0 12px; letter-spacing: -0.02em; font-weight: 700; word-break: keep-all; }
+  .lede { margin: 0 0 14px; color: var(--muted); font-size: 1.02rem; word-break: keep-all; }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: .86rem; }
+  .facts li { display: inline-flex; align-items: center; gap: 6px; }
+  .facts svg { color: var(--good); flex: none; }
+  .grid { display: grid; gap: 20px; }
+  .grid > * { min-width: 0; }  /* a grid item otherwise grows to its widest line and overflows a phone screen */
+  @media (min-width: 960px) { .grid { grid-template-columns: 1.15fr 1fr; align-items: start; } .result-panel { position: sticky; top: 16px; } }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; box-shadow: var(--shadow); }
+  .panel-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 16px; font-size: .78rem;
+    font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+  .examples-label { display: block; font-size: .86rem; color: var(--muted); margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; }
+  .chip-btn { border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg); padding: 6px 12px; font-size: .86rem; font-weight: 500;
+    display: inline-flex; align-items: center; gap: 7px; }
+  .chip-btn:hover { border-color: var(--accent); }
+  .chip-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .chip-btn small { color: var(--faint); font-weight: 500; }
+  button:focus-visible, a:focus-visible, summary:focus-visible, .row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .label-row { display: flex; justify-content: space-between; align-items: baseline; }
+  label { font-size: .82rem; font-weight: 500; color: var(--muted); }
+  .count { font-size: .78rem; color: var(--faint); }
+  .editor { position: relative; margin-top: 5px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--sunken); }
+  .editor:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .editor textarea, .editor .backdrop { font: inherit; font-size: .96rem; line-height: 1.75; padding: 14px 16px; margin: 0; border: 0;
+    white-space: pre-wrap; overflow-wrap: break-word; word-break: keep-all; letter-spacing: normal; }  /* keep-all: Korean wraps at spaces, not mid-word */
+  .editor textarea { position: relative; display: block; width: 100%; height: 400px; resize: vertical; background: transparent;
+    color: var(--fg); outline: none; overflow-y: scroll; }
+  .editor .backdrop { position: absolute; top: 0; left: 0; right: 0; overflow-y: scroll; scrollbar-color: transparent transparent;
+    color: transparent; pointer-events: none; }
+  .backdrop mark { color: transparent; border-radius: 3px; }
+  .backdrop mark.BLOCK { background: var(--mark-block); }
+  .backdrop mark.WARN { background: var(--mark-warn); }
+  .backdrop mark.focus { background: var(--mark-focus); box-shadow: 0 0 0 2px var(--mark-focus); }
+  .hint { margin: 10px 0 0; font-size: .84rem; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .hint .spin { width: 12px; height: 12px; border: 2px solid var(--line-strong); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .result-panel { transition: box-shadow .8s ease; }
+  .result-panel.updated { box-shadow: 0 0 0 2px var(--accent), var(--shadow); transition: box-shadow 0s; }
+  @media (prefers-reduced-motion: reduce) { .result-panel { transition: none; } .hint .spin { animation: none; } }
+  .ghost { border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg); padding: 5px 12px; font-size: .82rem; font-weight: 500;
+    text-transform: none; letter-spacing: 0; display: inline-flex; align-items: center; gap: 6px; }
+  .ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .ghost:disabled { opacity: .45; cursor: default; }
+  .verdict { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; padding: 16px; border-radius: 12px; margin-bottom: 14px; }
+  .verdict.ok { background: var(--good-bg); } .verdict.some { background: var(--warn-bg); } .verdict.many { background: var(--bad-bg); }
+  .tile { min-width: 52px; height: 52px; padding: 0 8px; border-radius: 12px; display: grid; place-items: center; font-size: 1.5rem; font-weight: 700; color: #fff; }
+  .verdict.ok .tile { background: var(--good); } .verdict.some .tile { background: var(--warn); } .verdict.many .tile { background: var(--bad); }
+  :root[data-theme="dark"] .tile { color: var(--bg); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tile { color: var(--bg); } }
+  .verdict-head { font-weight: 600; font-size: 1.05rem; line-height: 1.35; word-break: keep-all; }
+  .verdict.ok .verdict-head { color: var(--good); } .verdict.some .verdict-head { color: var(--warn); } .verdict.many .verdict-head { color: var(--bad); }
+  .verdict-sub { color: var(--muted); font-size: .86rem; margin-top: 2px; word-break: keep-all; }
+  .cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; padding: 0; list-style: none; }
+  .cats li { font-size: .78rem; font-weight: 500; padding: 3px 10px; border-radius: 999px; background: var(--neutral-bg); color: var(--neutral); }
+  .cats li b { font-weight: 700; margin-left: 4px; }
+  .meta { margin: 8px 0 4px; color: var(--faint); font-size: .8rem; word-break: keep-all; }
+  .row { padding: 13px 10px; margin: 0 -10px; border-top: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+  .row:hover { background: var(--sunken); }
+  .row-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+  .match { font-weight: 600; font-size: .95rem; word-break: keep-all; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .BLOCKb { color: var(--bad); background: var(--bad-bg); } .WARNb { color: var(--warn); background: var(--warn-bg); }
+  .what { margin: 6px 0 0; font-size: .86rem; color: var(--muted); word-break: keep-all; }
+  .fix { margin: 3px 0 0; font-size: .9rem; word-break: keep-all; }
+  .fix b { font-weight: 600; }
+  .rid { color: var(--faint); font-size: .74rem; margin-left: 6px; font-weight: 500; }
+  .empty { color: var(--muted); padding: 28px 8px; text-align: center; font-size: .92rem; }
+  details { margin-top: 28px; max-width: 82ch; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; }
+  summary { cursor: pointer; font-weight: 600; }
+  details ul { color: var(--muted); padding-left: 20px; margin: 12px 0 4px; font-size: .92rem; }
+  details li { margin: 7px 0; word-break: keep-all; }
+  details b { color: var(--fg); }
+  footer { margin-top: 20px; color: var(--faint); font-size: .84rem; max-width: 82ch; }
+</style>
+</head>
+<body>
+<div class="topbar"><div class="topbar-in">
+  <span class="brand"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>korean-ai-tell</span>
+  <div class="tools">
+    <div class="seg" role="group" aria-label="Language"><button data-ui="en" aria-pressed="true">EN</button><button data-ui="ko" aria-pressed="false">한국어</button></div>
+    <a class="src" href="https://github.com/CY-HYUN/korean-ai-tell"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.29-1.69-1.29-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.83 1.19 3.08 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg><span>Source</span></a>
+  </div>
+</div></div>
+<main>
+  <header>
+    <h1 data-t="h1"></h1>
+    <p class="lede" data-t="lede"></p>
+    <ul class="facts">
+      <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span data-t="f1"></span></li>
+      <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span data-t="f2"></span></li>
+      <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span data-t="f3"></span></li>
+    </ul>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="t-text">
+      <h2 class="panel-title" id="t-text" data-t="textTitle"></h2>
+      <span class="examples-label" data-t="examples"></span>
+      <div class="chips" id="chips" role="group"></div>
+      <div class="label-row"><label for="text" data-t="textLabel"></label><span class="count" id="count"></span></div>
+      <div class="editor">
+        <div class="backdrop" id="backdrop" aria-hidden="true"></div>
+        <textarea id="text" spellcheck="false" lang="ko"></textarea>
+      </div>
+      <p class="hint" id="status" role="status"><span class="spin" aria-hidden="true"></span><span data-t="loading"></span></p>
+    </section>
+
+    <section class="panel result-panel" aria-labelledby="t-result">
+      <h2 class="panel-title" id="t-result"><span data-t="resultTitle"></span>
+        <button class="ghost" id="copy" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span data-t="copy"></span></button></h2>
+      <div id="result" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <details>
+    <summary data-t="howTitle"></summary>
+    <ul id="how"></ul>
+  </details>
+  <footer data-t="footer"></footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script>
+const PKG = "korean-ai-tell==0.1.0";
+const T = {
+  en: {
+    h1: "Does this Korean text read as if an AI wrote it?",
+    lede: "Paste Korean (or English) text. The checker marks the phrases that make readers think \"a chatbot wrote this\", right where they are, and says how to fix each one.",
+    f1: "Rule-based: no model and no API call", f2: "Korean and English rule sets, picked by the text", f3: "Runs in your browser; the text never leaves this page",
+    textTitle: "Text", examples: "Try an example (invented texts), then edit any line and watch the result change.",
+    textLabel: "Text to check", resultTitle: "Result", copy: "Copy findings",
+    loading: "Loading the checker (a few seconds on first visit)…", ready: "Ready. Edit the text; the result follows as you type.",
+    checked: t => `Checked ${t}. Edit anything to check again.`, chars: n => `${n} characters`,
+    empty: "Paste some text to check.", none: "No AI tells found", noneSub: "Nothing on the rule list. Read it aloud once more anyway.",
+    some: "A few AI tells", many: "Reads as AI-written", sub: (b, w) => `${b} blocking, ${w} to review`, langIs: l => `Checked as ${l}. Click a finding to find it in the text.`,
+    ko: "Korean", enName: "English", block: "Block", warn: "Review", fix: "Fix:", cats: "By kind",
+    howTitle: "How it decides",
+    how: [
+      "<b>Rule-based.</b> Each rule is a pattern drawn from writing that readers flag as LLM-made: a guide-style opening, a chatbot sign-off, promotional adjectives, \"it's not A but B\", unsourced \"studies show\", commentary added after a fact.",
+      "<b>Block</b> findings are tells on their own. <b>Review</b> findings (translationese such as \"~에 있어서\", \"~를 통해\", stiff politeness) appear only when three or more kinds pile up in one text, because one alone is normal Korean.",
+      "<b>The label</b> is a rule of thumb, not a measured classifier: no finding = no AI tells found; one or two blocking findings = a few tells; three or more = reads as AI-written.",
+      "<b>Each rule reports its first match.</b> Fix it and the next one, if any, appears.",
+    ],
+    footer: "From the open-source package korean-ai-tell (PyPI), which also ships a pre-commit hook and a Claude Code skill. A checker reads patterns, not intent: use the findings as a second reader, not a verdict.",
+    ex: { listing: "Service listing", rewritten: "Same listing, rewritten", cover: "Cover letter", mail: "Work email", english: "English email" },
+  },
+  ko: {
+    h1: "이 글, AI가 쓴 것처럼 읽히나요?",
+    lede: "한국어(또는 영어) 글을 붙여 넣으세요. 읽는 사람이 \"챗봇이 썼네\" 하고 느끼는 표현을 글 안에서 바로 표시하고, 하나하나 어떻게 고치면 되는지 알려 줍니다.",
+    f1: "규칙 기반: 모델도 API 호출도 없음", f2: "한국어·영어 규칙, 글의 언어에 맞춰 자동 선택", f3: "브라우저 안에서만 실행, 글이 밖으로 나가지 않음",
+    textTitle: "글", examples: "예시를 눌러 보고(지어낸 글), 아무 줄이나 고쳐 보세요. 결과가 바로 바뀝니다.",
+    textLabel: "검사할 글", resultTitle: "결과", copy: "결과 복사",
+    loading: "검사기를 불러오는 중(처음에는 몇 초 걸립니다)…", ready: "준비됐습니다. 글을 고치면 결과가 바로 따라옵니다.",
+    checked: t => `${t}에 검사했습니다. 고치면 다시 검사합니다.`, chars: n => `${n}자`,
+    empty: "검사할 글을 붙여 넣으세요.", none: "AI 티가 보이지 않음", noneSub: "규칙 목록에 걸린 것이 없습니다. 그래도 소리 내어 한 번 더 읽어 보세요.",
+    some: "AI 티가 조금 있음", many: "AI가 쓴 글처럼 읽힘", sub: (b, w) => `차단 ${b}건, 검토 ${w}건`, langIs: l => `${l}로 검사했습니다. 항목을 누르면 글 속 위치를 보여 줍니다.`,
+    ko: "한국어", enName: "영어", block: "차단", warn: "검토", fix: "고치기:", cats: "종류별",
+    howTitle: "어떻게 판정하나요",
+    how: [
+      "<b>규칙 기반입니다.</b> 독자가 LLM 글로 알아보는 표현을 규칙으로 만들었습니다. 안내문식 첫 문장, 챗봇식 맺음말, 홍보 형용사, 'A가 아니라 B' 틀, 출처 없는 '연구에 따르면', 사실 뒤에 덧붙인 해설 등입니다.",
+      "<b>차단</b>은 그것 하나만으로 티가 나는 표현입니다. <b>검토</b>('~에 있어서', '~를 통해', 과공손체 같은 번역투)는 한 글에 세 종류 이상 쌓였을 때만 표시합니다. 하나만 있으면 평범한 한국어이기 때문입니다.",
+      "<b>등급</b>은 측정한 분류기가 아니라 경험칙입니다. 걸린 것 없음 = AI 티 없음, 차단 1~2건 = 조금 있음, 3건 이상 = AI가 쓴 글처럼 읽힘.",
+      "<b>규칙마다 첫 번째로 걸린 곳만</b> 보여 줍니다. 고치면 다음 것이 있으면 나타납니다.",
+    ],
+    footer: "오픈소스 패키지 korean-ai-tell(PyPI)로 검사합니다. 같은 패키지에 pre-commit 훅과 Claude Code 스킬도 있습니다. 검사기는 패턴을 읽을 뿐 의도는 모르니, 결과는 판정이 아니라 두 번째 독자로 쓰세요.",
+    ex: { listing: "크몽 상품 설명", rewritten: "같은 글, 고친 뒤", cover: "자기소개서", mail: "업무 메일", english: "영어 메일" },
+  },
+};
+// what each rule means, in English; the Korean meaning is the package's own hint
+const RULE_EN = {
+  "ko-guide-intro": "Guide-style opening (\"today we will look at…\")", "ko-reaction": "Reaction before the answer",
+  "ko-leftover": "Chatbot sign-off", "ko-disclaimer": "Hedging disclaimer", "ko-placeholder": "Unfilled placeholder",
+  "ko-inflate": "Inflated importance", "ko-promo": "Promotional adjective", "ko-commentary": "Commentary added after a fact",
+  "ko-negation-pair": "\"Not A but B\" frame", "ko-ordinal": "Ordinal list (first, second…)", "ko-dash": "Dash as a separator",
+  "ko-unsourced": "Unsourced claim (\"studies show\")", "ko-you": "\"당신\" (you) addressing the reader", "ko-section-title": "Template section title",
+  "ko-must-repeat": "Repeated \"must\"", "ko-eseo": "Translationese \"~에 있어서\"", "ko-through": "Translationese \"~를 통해\"",
+  "ko-passive": "Passive voice", "ko-summary": "Re-summary of what was said", "ko-connective": "Stacked connective adverb",
+  "ko-geot": "\"~하는 것이 가능합니다\"", "ko-over-polite": "Over-polite register", "ko-fake-range": "Vague range instead of the task",
+  "ko-lecture": "Lecturing the reader",
+};
+const RULE_KO = { "ai-opener": "AI식 첫마디", "spoken-opener": "말로 하는 시작(맞장구)", "count-announce": "개수 예고", "llm-vocab": "LLM 단골 어휘",
+  "pleasantry": "인사치레", "filler": "군더더기 부사", "hedge-stack": "얼버무림 겹침", "runon": "너무 긴 문장", "avoid-phrase": "쓰지 않는 표현" };
+const CAT = { // rule -> kind, for the summary chips
+  structure: ["ko-guide-intro", "ko-reaction", "ko-leftover", "ko-section-title", "ko-ordinal", "ko-summary", "ai-opener", "spoken-opener", "count-announce", "pleasantry"],
+  claims: ["ko-inflate", "ko-promo", "ko-commentary", "ko-negation-pair", "ko-unsourced", "ko-disclaimer", "ko-fake-range", "ko-must-repeat", "llm-vocab", "hedge-stack"],
+  style: ["ko-eseo", "ko-through", "ko-passive", "ko-connective", "ko-geot", "ko-over-polite", "ko-lecture", "ko-you", "ko-dash", "ko-placeholder", "filler", "runon", "avoid-phrase"],
+};
+const CAT_NAME = { en: { structure: "Opening and closing", claims: "Claims and hype", style: "Wording" }, ko: { structure: "시작·맺음", claims: "주장·과장", style: "문체·번역투" } };
+const EXAMPLES = {
+  listing: `안녕하세요! 오늘은 데이터 정리 서비스에 대해 알아보겠습니다.
+
+엑셀 정리는 단순히 표를 고치는 일이 아니라 업무 효율의 핵심입니다. 저희는 혁신적인 자동화 도구를 통해 작업 시간을 줄여 드립니다.
+
+연구에 따르면 데이터 정리에 업무 시간의 30%가 쓰인다고 합니다. 이는 자동화의 필요성을 보여줍니다.
+
+더 궁금한 점 있으시면 언제든 말씀해 주세요. 도움이 되셨길 바랍니다!`,
+  rewritten: `엑셀 파일 정리해 드려요. 중복 행 지우기, 날짜 형식 맞추기, 시트 합치기까지 해요.
+
+지난달에 받은 거래처 목록은 4,200행이었어요. 파이썬 스크립트로 정리해서 하루 만에 보내 드렸어요.
+
+파일을 먼저 보내 주시면 걸리는 시간과 가격을 알려 드릴게요.`,
+  cover: `안녕하세요! 데이터 분석 직무에 지원하게 된 이유에 대해 말씀드리겠습니다.
+
+저는 단순히 숫자를 다루는 사람이 아니라 비즈니스의 핵심을 이해하는 분석가입니다. 대학 시절부터 다양한 프로젝트를 통해 혁신적인 문제 해결 능력을 길러 왔습니다.
+
+첫째, 저는 데이터 정리에 강점이 있습니다. 둘째, 팀원과의 소통을 중요하게 생각합니다. 이는 제가 귀사에 꼭 필요한 인재임을 보여줍니다.
+
+귀사의 성장에 있어서 큰 힘이 되겠습니다. 읽어 주셔서 감사합니다!`,
+  mail: `팀장님, 안녕하세요. 요청하신 3분기 매출 보고서에 대해 정리해 드리겠습니다.
+
+결론부터 말씀드리면, 이번 분기 매출은 매우 중요한 전환점이라고 할 수 있습니다. 신규 고객 유입을 통해 전체 매출이 증가하였으며, 이는 마케팅 전략의 효과를 보여줍니다.
+
+또한 비용 측면에 있어서도 개선이 이루어졌습니다. 따라서 다음 분기에도 같은 전략을 유지하는 것이 가능합니다.
+
+추가로 궁금하신 점이 있으시면 언제든지 편하게 말씀해 주세요. 감사합니다!`,
+  english: `Great question! Let's dive into why our data cleanup service matters.
+
+In today's fast-paced world, clean data is not just a nice-to-have, it's a game-changer. Our innovative tools seamlessly streamline your workflow, and studies show that teams spend 30% of their time on data cleanup.
+
+Ultimately, this highlights the importance of automation. Hope this helps, and feel free to reach out if you have any questions!`,
+};
+const EX_ORDER = [["listing", 7], ["rewritten", 0], ["cover", 4], ["mail", 5], ["english", 4]];
+
+const $ = id => document.getElementById(id);
+const textBox = $("text"), backdrop = $("backdrop"), status = $("status");
+let ui = "en", py = null, run = null, last = null, marks = [], timer = null, exKey = "listing";
+try { ui = localStorage.getItem("kat-ui") || (navigator.language.startsWith("ko") ? "ko" : "en"); } catch { /* storage blocked */ }
+const t = k => T[ui][k];
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+function applyUi() {
+  document.documentElement.lang = ui;
+  document.querySelectorAll("[data-ui]").forEach(b => b.setAttribute("aria-pressed", b.dataset.ui === ui));
+  document.querySelectorAll("[data-t]").forEach(n => { const v = t(n.dataset.t); if (typeof v === "string") n.textContent = v; });
+  $("how").innerHTML = t("how").map(x => `<li>${x}</li>`).join("");
+  const chips = $("chips"); chips.replaceChildren();
+  for (const [k, n] of EX_ORDER) {
+    const b = el("button", "chip-btn"); b.dataset.ex = k; b.setAttribute("aria-pressed", k === exKey);
+    b.append(t("ex")[k], el("small", null, String(n)));
+    b.addEventListener("click", () => loadExample(k)); chips.append(b);
+  }
+  $("count").textContent = textBox.value ? t("chars")(textBox.value.length.toLocaleString("en-US")) : "";
+  if (last) render(last); else if (!run) setStatus(t("loading"), true);
+}
+
+function setStatus(msg, spinning) {
+  status.replaceChildren(); if (spinning) status.append(el("span", "spin")); status.append(el("span", null, msg));
+}
+
+async function boot() {
+  try {
+    py = await loadPyodide();
+    await py.loadPackage("micropip");
+    await py.runPythonAsync(`
+import micropip
+await micropip.install("${PKG}")
+import json
+from korean_ai_tell import check, lang_of
+def run(text):
+    text = text.strip()
+    if not text:
+        return json.dumps({"lang": "", "rows": []})
+    return json.dumps({"lang": lang_of(text), "rows": [[f.severity, f.rule_id, f.match, f.hint] for f in check(text)]}, ensure_ascii=False)
+`);
+    run = py.globals.get("run");
+    setStatus(t("ready"));
+    check();
+  } catch (e) {
+    setStatus("Could not load the checker in this browser: " + e.message);
+  }
+}
+
+function loadExample(k) {
+  exKey = k; textBox.value = EXAMPLES[k]; textBox.scrollTop = 0;
+  document.querySelectorAll("[data-ex]").forEach(b => b.setAttribute("aria-pressed", b.dataset.ex === k));
+  $("count").textContent = t("chars")(textBox.value.length.toLocaleString("en-US"));
+  check();
+}
+
+function check() {
+  if (!run) return;
+  last = JSON.parse(run(textBox.value));
+  render(last);
+  const panel = document.querySelector(".result-panel");
+  panel.classList.add("updated"); requestAnimationFrame(() => requestAnimationFrame(() => panel.classList.remove("updated")));
+  setStatus(t("checked")(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })));
+}
+
+const kindOf = rid => Object.keys(CAT).find(k => CAT[k].includes(rid)) || "style";
+
+function render(r) {
+  const out = $("result"); out.replaceChildren(); marks = [];
+  if (!r.lang) { out.append(el("p", "empty", t("empty"))); paint(); $("copy").disabled = true; return; }
+  const blocks = r.rows.filter(x => x[0] === "BLOCK").length, warns = r.rows.length - blocks;
+  const level = !r.rows.length ? "ok" : blocks >= 3 ? "many" : "some";
+  const v = el("div", "verdict " + level), body = el("div");
+  v.append(el("div", "tile", String(r.rows.length)), body);
+  body.append(el("div", "verdict-head", t({ ok: "none", some: "some", many: "many" }[level])),
+              el("div", "verdict-sub", r.rows.length ? t("sub")(blocks, warns) : t("noneSub")));
+  out.append(v);
+  if (r.rows.length) {
+    const cats = el("ul", "cats");
+    for (const k of Object.keys(CAT)) {
+      const n = r.rows.filter(x => kindOf(x[1]) === k).length;
+      if (n) { const li = el("li", null, CAT_NAME[ui][k]); li.append(el("b", null, String(n))); cats.append(li); }
+    }
+    out.append(cats);
+  }
+  out.append(el("p", "meta", t("langIs")(r.lang === "ko" ? t("ko") : t("enName"))));
+  r.rows.forEach(([sev, rid, match, hint], i) => {
+    const row = el("div", "row"); row.tabIndex = 0; row.setAttribute("role", "button");
+    const head = el("div", "row-head"), m = el("span", "match", "“" + match + "”");
+    head.append(m, el("span", "badge " + sev + "b", sev === "BLOCK" ? t("block") : t("warn")));
+    const what = el("p", "what", ui === "en" ? (RULE_EN[rid] || rid) : (rid.startsWith("ko-") ? kindLabelKo(rid, hint) : (RULE_KO[rid] || rid)));
+    what.append(el("span", "rid", rid));
+    const fix = el("p", "fix"); fix.append(el("b", null, t("fix") + " "), hint);
+    row.append(head, what, fix);
+    const go = () => focusMark(i);
+    row.addEventListener("click", go);
+    row.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+    out.append(row);
+    marks.push([match, sev]);
+  });
+  paint();
+  $("copy").disabled = !r.rows.length;
+}
+// In Korean the hint already says what to do; the line above it names the rule's kind
+const kindLabelKo = rid => ({ "ko-guide-intro": "안내문식 첫 문장", "ko-reaction": "답보다 먼저 나오는 리액션", "ko-leftover": "챗봇식 맺음말",
+  "ko-disclaimer": "면책성 단서", "ko-placeholder": "채우지 않은 자리표시자", "ko-inflate": "중요성 부풀리기", "ko-promo": "홍보 형용사",
+  "ko-commentary": "사실 뒤에 붙인 해설", "ko-negation-pair": "'A가 아니라 B' 틀", "ko-ordinal": "서수 나열(첫째, 둘째…)", "ko-dash": "구분자로 쓴 대시",
+  "ko-unsourced": "출처 없는 주장", "ko-you": "'당신' 호칭", "ko-section-title": "정형 소제목", "ko-must-repeat": "당위 표현 반복",
+  "ko-eseo": "번역투 '~에 있어서'", "ko-through": "번역투 '~를 통해'", "ko-passive": "피동 표현", "ko-summary": "앞 내용 되풀이 요약",
+  "ko-connective": "쌓인 접속부사", "ko-geot": "'~하는 것이 가능합니다'", "ko-over-polite": "과공손체", "ko-fake-range": "실제 일 대신 범위",
+  "ko-lecture": "훈수 문장" }[rid] || rid);
+
+function paint(focus = -1) {
+  const text = textBox.value, spans = [];
+  marks.forEach(([s, sev], k) => {
+    const needle = s.replace(/^\d+x /, ""); const i = needle ? text.indexOf(needle) : -1;
+    if (i >= 0) spans.push([i, i + needle.length, k, sev]);
+  });
+  spans.sort((a, b) => a[0] - b[0]);
+  backdrop.replaceChildren();
+  let pos = 0;
+  for (const [a, b, k, sev] of spans) {
+    if (a < pos) continue;
+    const m = el("mark", sev + (k === focus ? " focus" : ""), text.slice(a, b)); m.dataset.k = k;
+    backdrop.append(document.createTextNode(text.slice(pos, a)), m); pos = b;
+  }
+  backdrop.append(document.createTextNode(text.slice(pos) + "\n"));
+  backdrop.scrollTop = textBox.scrollTop;
+}
+
+function focusMark(k) {
+  paint(k);
+  const m = backdrop.querySelector(`mark[data-k="${k}"]`);
+  if (!m) return;
+  textBox.scrollTop = Math.max(0, m.offsetTop - textBox.clientHeight / 3);
+  backdrop.scrollTop = textBox.scrollTop;
+}
+
+$("copy").addEventListener("click", async () => {
+  const lines = last.rows.map(([sev, rid, match, hint]) => `- [${sev}] "${match}" (${rid}): ${hint}`);
+  const btn = $("copy").querySelector("[data-t]");
+  try { await navigator.clipboard.writeText(lines.join("\n")); btn.textContent = ui === "en" ? "Copied" : "복사됨"; }
+  catch { btn.textContent = ui === "en" ? "Copy failed" : "복사 실패"; }
+  setTimeout(() => { btn.textContent = t("copy"); }, 1500);
+});
+const later = () => { clearTimeout(timer); timer = setTimeout(check, 250); };
+textBox.addEventListener("input", () => {
+  document.querySelectorAll("[data-ex]").forEach(b => b.setAttribute("aria-pressed", false));
+  $("count").textContent = textBox.value ? t("chars")(textBox.value.length.toLocaleString("en-US")) : "";
+  paint(); later();
+});
+textBox.addEventListener("scroll", () => { backdrop.scrollTop = textBox.scrollTop; });
+new ResizeObserver(() => { backdrop.style.height = textBox.offsetHeight + "px"; }).observe(textBox);
+document.querySelectorAll("[data-ui]").forEach(b => b.addEventListener("click", () => {
+  ui = b.dataset.ui; try { localStorage.setItem("kat-ui", ui); } catch { /* storage blocked */ } applyUi();
+}));
+textBox.value = EXAMPLES[exKey];
+applyUi();
+boot();
+</script>
+</body>
+</html>

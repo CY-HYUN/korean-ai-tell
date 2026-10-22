@@ -1,8 +1,8 @@
 # korean-ai-tell
 
-![tests](https://github.com/CY-HYUN/korean-ai-tell/actions/workflows/tests.yml/badge.svg) [![PyPI](https://img.shields.io/pypi/v/korean-ai-tell)](https://pypi.org/project/korean-ai-tell/) [![Demo](https://img.shields.io/badge/demo-Hugging%20Face%20Space-yellow)](https://huggingface.co/spaces/CY-HYUN/korean-ai-tell)
+![tests](https://github.com/CY-HYUN/korean-ai-tell/actions/workflows/tests.yml/badge.svg) [![PyPI](https://img.shields.io/pypi/v/korean-ai-tell)](https://pypi.org/project/korean-ai-tell/) [![Demo](https://img.shields.io/badge/demo-try%20it%20in%20the%20browser-2f54eb)](https://cy-hyun.github.io/korean-ai-tell/)
 
-**Try it in the browser:** [live demo](https://huggingface.co/spaces/CY-HYUN/korean-ai-tell). Paste Korean text and see each finding with its fix hint. No install; the checker runs inside your browser.
+**Try it in the browser:** [live demo](https://cy-hyun.github.io/korean-ai-tell/). Paste Korean text and see each finding with its fix hint. No install; the checker runs inside your browser.
 
 A small Python library and CLI that flags "AI tells" in Korean text: the phrases that make a Korean reader think "GPT wrote this" within three seconds. An English rule set runs as a second mode.
 
